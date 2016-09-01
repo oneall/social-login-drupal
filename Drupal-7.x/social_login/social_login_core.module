@@ -1239,6 +1239,9 @@ function social_login_core_profilefields($oauser = array()) {
 		'oneall_identity_pictureurl' => array(
 				'value' => (!empty($oaid['pictureUrl']) ? $oaid['pictureUrl'] : ''), 
 				'label' => t('Picture URL'), 'type' => 'text', 'description' => 'Social network identity picture URL.'),
+		'oneall_identity_currentlocation' => array(
+				'value' => (!empty($oaid['currentLocation']) ? $oaid['currentLocation'] : ''), 
+				'label' => t('Current Location'), 'type' => 'text', 'description' => 'Social network identity current location.'),
 		'oneall_identity_gender' => array(
 				'value' => (!empty($oaid['gender']) ? $oaid['gender'] : ''), 
 				'label' => t('Gender'), 'type' => 'text', 'description' => 'Social network identity gender.'),
