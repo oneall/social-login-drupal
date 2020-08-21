@@ -1,6 +1,7 @@
 ## Available Versions
 * **Social Login for Drupal 7.x**
-* [Social Login for Drupal 8.0+](https://github.com/oneall/social-login-drupal/tree/drupal/8.x)
+* [Social Login for Drupal 8.x - 8.7](https://github.com/oneall/social-login-drupal/tree/drupal/8.x)
+* [Social Login for Drupal 8.8 - 9.x](https://github.com/oneall/social-login-drupal/tree/drupal/9.x)
 
 # Social Login 2.13.0 for Drupal 7.x
 
