@@ -10,6 +10,11 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Exception\ConnectException;
+use Drupal\Core\Database\Database;
+use Drupal\Core\File\FileSystemInterface;
+use Drupal\Core\Link;
+use Drupal\user\UserInterface;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
  * Implements hook_help().
@@ -54,7 +59,7 @@ function social_login_form_user_form_alter(&$form, FormStateInterface $form_stat
 function social_login_form_user_login_form_alter(&$form, FormStateInterface $form_state, $form_id) {
 
   // Clear leftover session.
-  if (isset($_SESSION) && isset($_SESSION['social_login_session_open'])) {
+  if (isset($_SESSION['social_login_session_open'])) {
     social_login_clear_session();
   }
   social_login_show_providers($form, $form_state, 'login_page');
@@ -66,7 +71,7 @@ function social_login_form_user_login_form_alter(&$form, FormStateInterface $for
 function social_login_form_user_register_form_alter(&$form, FormStateInterface $form_state, $form_id) {
 
   // Check if we come from a valid session.
-  if (isset($_SESSION) && !empty($_SESSION['social_login_session_open']) && !empty($_SESSION['social_login_social_data'])) {
+  if (!empty($_SESSION['social_login_session_open']) && !empty($_SESSION['social_login_social_data'])) {
 
     // To ensure that the SESSION data is used for registration once.
     $_SESSION['social_login_session_open'] = 0;
@@ -430,7 +435,7 @@ function social_login_user_insert($account) {
           default :
 
             // No approval required.
-            if (Drupal::config('user.settings')->get('register') == USER_REGISTER_VISITORS)
+            if (Drupal::config('user.settings')->get('register') == UserInterface::REGISTER_VISITORS)
             {
               // Activate.
               $account->activate();
@@ -485,9 +490,9 @@ function social_login_user_login($account) {
             if ($account->id() != $uid)
             {
               // Add user message.
-              drupal_set_message(t('Sorry, but this @provider account is already linked to another user on this website.', [
+              \Drupal::messenger()->addError(t('Sorry, but this @provider account is already linked to another user on this website.', [
                   '@provider' => $provider
-              ]), 'error');
+              ]));
             }
           }
           // Not linked.
@@ -497,9 +502,9 @@ function social_login_user_login($account) {
             if (social_login_map_identity_token_to_user_token($account, $identity_token, $user_token, $provider))
             {
               // Add user message.
-              drupal_set_message(t('Your @provider account has been linked to your account. You may now use @provider to login.', [
+              \Drupal::messenger()->addStatus(t('Your @provider account has been linked to your account. You may now use @provider to login.', [
                   '@provider' => $provider
-              ]), 'status');
+              ]));
             }
           }
         }
@@ -513,11 +518,11 @@ function social_login_user_login($account) {
  * Implements hook_user_delete().
  */
 function social_login_user_delete($account) {
-  $aids = db_query("SELECT aid FROM {oneall_social_login_authmap} WHERE uid = :userid", [':userid' => $account->id()])->fetchCol();
+  $aids = Database::getConnection()->query("SELECT aid FROM {oneall_social_login_authmap} WHERE uid = :userid", [':userid' => $account->id()])->fetchCol();
   if (is_array($aids)) {
     foreach ($aids as $aid) {
-      db_delete('oneall_social_login_identities')->condition('aid', $aid)->execute();
-      db_delete('oneall_social_login_authmap')->condition('aid', $aid)->execute();
+      Database::getConnection()->delete('oneall_social_login_identities')->condition('aid', $aid)->execute();
+      Database::getConnection()->delete('oneall_social_login_authmap')->condition('aid', $aid)->execute();
     }
   }
 }
@@ -735,13 +740,13 @@ function social_login_link_social_network_avatar($social_data, $account) {
       $field = FieldConfig::loadByName('user', 'user', 'user_picture');
       $token_service = Drupal::service('token');
       $file_dir = $token_service->replace($field->getSetting('file_directory'));
-      $picture_directory = file_default_scheme() . '://' . $file_dir;
+      $picture_directory = \Drupal::config('system.file')->get('default_scheme') . '://' . $file_dir;
 
       // Prepare the picture directory.
-      if (file_prepare_directory($picture_directory, FILE_CREATE_DIRECTORY)) {
+      if (\Drupal::service('file_system')->prepareDirectory($picture_directory, FileSystemInterface::CREATE_DIRECTORY)) {
 
         // Base name of the file.
-        $file_base_name = $picture_directory . '/picture-' . $account->id() . '-' . REQUEST_TIME;
+        $file_base_name = $picture_directory . '/picture-' . $account->id() . '-' . Drupal::time()->getRequestTime();;
 
         // Check which api connection handler should be used.
         $handler = (!empty($settings['http_handler']) ? $settings['http_handler'] : 'curl');
@@ -751,9 +756,9 @@ function social_login_link_social_network_avatar($social_data, $account) {
         $http_result = social_login_do_api_request($handler, $picture_url);
 
         // Save the picture data locally.
-        $tmp_name = $file_base_name . '.tmp';
-        $tmp_path = file_stream_wrapper_uri_normalize($tmp_name);
-        $tmp_file = file_save_data($http_result['http_data'], $tmp_path, FILE_EXISTS_REPLACE);
+        $tmp_name = $file_base_name . '.tmp';        
+        $tmp_path = \Drupal::service('stream_wrapper_manager')->normalizeUri($tmp_name);
+        $tmp_file = file_save_data($http_result['http_data'], $tmp_path, FileSystemInterface::EXISTS_REPLACE);
 
         if ($tmp_file === FALSE) {
           Drupal::logger('social_login')->error('Could not save user avatar to @path', ['@path' => $tmp_path]);
@@ -766,9 +771,9 @@ function social_login_link_social_network_avatar($social_data, $account) {
           // Rename the temporary file to the correct extension.
           list (, , $type) = $file_info;
           $real_name = $file_base_name . image_type_to_extension($type);
-          $real_path = file_stream_wrapper_uri_normalize($real_name);
+          $real_path = \Drupal::service('stream_wrapper_manager')->normalizeUri($real_name);
 
-          $real_file = file_move($tmp_file, $real_path, FILE_EXISTS_REPLACE);
+          $real_file = file_move($tmp_file, $real_path, FileSystemInterface::EXISTS_REPLACE);
 
           // file_move does not update the destination filename:
           $real_file->setFilename(Drupal::service('file_system')->basename($real_path));
@@ -829,22 +834,22 @@ function social_login_redirect ($target = '', $data = '')
 
         // Drupal Homepage.
         case 'drupal.home':
-            $redirect_to = \Drupal::url('<front>');
+            $redirect_to = Url::fromRoute('<front>')->toString();
             break;
 
         // Drupal Login.
         case 'drupal.login':
-            $redirect_to = \Drupal::url('user.login');
+            $redirect_to = Url::fromRoute('user.login')->toString();
             break;
 
         // Drupal Registration.
         case 'drupal.register':
-            $redirect_to = \Drupal::url('user.register');
+            $redirect_to = Url::fromRoute('user.register')->toString();
             break;
 
         // Drupal Profile.
         case 'drupal.profile':
-            $redirect_to = \Drupal::url('user.page');
+            $redirect_to = Url::fromRoute('user.page')->toString();
             break;
 
         // Custom URL.
@@ -861,7 +866,7 @@ function social_login_redirect ($target = '', $data = '')
                 {
                     // Homepage.
                     case 'home':
-                        $redirect_to = \Drupal::url('<front>');
+                        $redirect_to = Url::fromRoute('<front>')->toString();
                     break;
 
                     // Back to previous page.
@@ -872,7 +877,7 @@ function social_login_redirect ($target = '', $data = '')
                         }
                         else
                         {
-                            $redirect_to = \Drupal::url('<front>');
+                            $redirect_to = Url::fromRoute('<front>')->toString();
                         }
                    break;
 
@@ -884,7 +889,7 @@ function social_login_redirect ($target = '', $data = '')
                        }
                        else
                        {
-                           $redirect_to = \Drupal::url('<front>');
+                           $redirect_to = Url::fromRoute('<front>')->toString();
                        }
                   break;
                 }
@@ -901,7 +906,7 @@ function social_login_redirect ($target = '', $data = '')
             {
                 // Homepage.
                 case 'home':
-                    $redirect_to = \Drupal::url('<front>');
+                    $redirect_to = Url::fromRoute('<front>')->toString();
                     break;
 
                 // Back to previous page.
@@ -912,7 +917,7 @@ function social_login_redirect ($target = '', $data = '')
                     }
                     else
                     {
-                        $redirect_to = \Drupal::url('<front>');
+                        $redirect_to = Url::fromRoute('<front>')->toString();
                     }
                     break;
 
@@ -924,7 +929,7 @@ function social_login_redirect ($target = '', $data = '')
                     }
                     else
                     {
-                        $redirect_to = \Drupal::url('<front>');
+                        $redirect_to = Url::fromRoute('<front>')->toString();
                     }
                     break;
             }
@@ -934,14 +939,14 @@ function social_login_redirect ($target = '', $data = '')
     }
 
     // Redirect.
-    return new Symfony\Component\HttpFoundation\RedirectResponse($redirect_to);
+    return new RedirectResponse($redirect_to);
 }
 
 /**
  * Unlinks an identity_token from an existing user account.
  */
 function social_login_unmap_identity_token($identity_token) {
-  db_delete('oneall_social_login_identities')->condition('identity_token', $identity_token)->execute();
+  Database::getConnection()->delete('oneall_social_login_identities')->condition('identity_token', $identity_token)->execute();
 
   // TODO: remove authmap records, when no identity left?
 }
@@ -952,28 +957,28 @@ function social_login_unmap_identity_token($identity_token) {
 function social_login_map_identity_token_to_user_token($account, $identity_token, $user_token, $provider_name) {
 
   // Start transaction.
-  $db_transaction = db_transaction();
+  $db_transaction = Database::getConnection()->startTransaction();
 
   try {
     // Update internal authmaps.
     // This code is adapted from D7 former user_set_authmap().
     if ($user_token) {
-      db_merge('oneall_social_login_authmap')->key(['uid' => $account->id()])->fields(['user_token' => $user_token])->execute();
+      Database::getConnection()->merge('oneall_social_login_authmap')->key(['uid' => $account->id()])->fields(['user_token' => $user_token])->execute();
     }
     else {
-      db_delete('oneall_social_login_authmap')->condition('uid', $account->id())->execute();
+      Database::getConnection()->delete('oneall_social_login_authmap')->condition('uid', $account->id())->execute();
     }
 
     // Get the new authmap identifier.
-    $aid = db_select('oneall_social_login_authmap', 'a')->fields('a', ['aid'])->condition('user_token', $user_token, '=')->execute()->fetchField();
+    $aid = Database::getConnection()->select('oneall_social_login_authmap', 'a')->fields('a', ['aid'])->condition('user_token', $user_token, '=')->execute()->fetchField();
 
     if (is_numeric($aid)) {
 
       // Remove duplicate identities.
-      db_delete('oneall_social_login_identities')->condition('aid', $aid)->condition('identity_token', $identity_token)->execute();
+      Database::getConnection()->delete('oneall_social_login_identities')->condition('aid', $aid)->condition('identity_token', $identity_token)->execute();
 
       // Add identity.
-      db_insert('oneall_social_login_identities')->fields([
+      Database::getConnection()->insert('oneall_social_login_identities')->fields([
         'aid' => $aid,
         'identity_token' => $identity_token,
         'provider_name' => $provider_name
@@ -1008,7 +1013,7 @@ function social_login_get_user_for_user_token($user_token) {
  * Return the uid for a user_token.
  */
 function social_login_get_uid_for_user_token($user_token) {
-  $uid = db_query("SELECT uid FROM {oneall_social_login_authmap} WHERE user_token = :token", [':token' => $user_token])->fetchField();
+  $uid = Database::getConnection()->query("SELECT uid FROM {oneall_social_login_authmap} WHERE user_token = :token", [':token' => $user_token])->fetchField();
   return (is_numeric($uid) ? $uid : FALSE);
 }
 
@@ -1016,7 +1021,7 @@ function social_login_get_uid_for_user_token($user_token) {
  * Return the user_token for a uid.
  */
 function social_login_get_user_token_for_uid($uid) {
-  $user_token = db_query("SELECT user_token FROM {oneall_social_login_authmap} WHERE uid = :uid", [':uid' => $uid])->fetchField();
+  $user_token = Database::getConnection()->query("SELECT user_token FROM {oneall_social_login_authmap} WHERE uid = :uid", [':uid' => $uid])->fetchField();
   return (!empty($user_token) ? $user_token : FALSE);
 }
 
@@ -1093,7 +1098,7 @@ function social_login_get_settings() {
   $settings['enabled_providers'] = [];
 
   // Read settings.
-  $results = db_query("SELECT setting, value FROM {oneall_social_login_settings}");
+  $results = Database::getConnection()->query("SELECT setting, value FROM {oneall_social_login_settings}");
   foreach ($results as $result) {
     $settings[$result->setting] = $result->value;
     if (substr($result->setting, 0, 8) == 'provider' && !empty($result->value)) {
@@ -1109,7 +1114,7 @@ function social_login_get_settings() {
 function social_login_preprocess_page(&$vars, $hook) {
   if (is_array($vars['page']) && isset($vars['page']) && isset($vars['page']['footer'])) {
     if (isset($vars['page']['footer']['system_powered-by']) && isset($vars['page']['footer']['system_powered-by']['#markup'])) {
-      $vars['page']['footer']['system_powered-by']['#markup'] .= '&nbsp; | &nbsp;' . Drupal::l(t('Social Login'), Url::fromUri('http://www.oneall.com/services/social-login/')) . ' ' . t('powered by') . ' ' . Drupal::l('OneAll', Url::fromUri('http://www.oneall.com/'));
+      $vars['page']['footer']['system_powered-by']['#markup'] .= '&nbsp; | &nbsp;' . Link::fromTextAndUrl(t('Social Login'), Url::fromUri('http://www.oneall.com/services/social-login/'))->toString() . ' ' . t('powered by') . ' ' . Link::fromTextAndUrl('OneAll', Url::fromUri('http://www.oneall.com/'))->toString();
     }
   }
 }

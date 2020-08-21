@@ -4,13 +4,40 @@ namespace Drupal\social_login\Controller;
 
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Url;
+use Drupal\Core\Messenger\MessengerInterface;
+use Drupal\social_login\Event\SocialLoginUserLoginEvent;
+use Drupal\user\Entity\User;
+use Drupal\user\UserInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Contains the callback handler used by the OneAll Social Login Module.
  */
 class SocialLoginController extends ControllerBase
 {
+    protected $messenger;
+
+    /**
+     * Constructor for the Social Login Controller.
+     *
+     * @param \Drupal\Core\Messenger\MessengerInterface $messenger
+     *   Messenger service interface.
+     */
+    public function __construct(MessengerInterface $messenger)
+    {
+        $this->messenger = $messenger;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public static function create(ContainerInterface $container)
+    {
+        return new static(
+            $container->get('messenger')
+        );
+    }
+
     /**
      * This is the callback handler (referenced by routing.yml).
      */
@@ -55,16 +82,17 @@ class SocialLoginController extends ControllerBase
             $token = trim($_POST['connection_token']);
 
             // Settings missing.
-            if (empty($api_subdomain) || empty($api_key) || empty($api_secret)) {
-
+            if (empty($api_subdomain) || empty($api_key) || empty($api_secret))
+            {
                 // User message.
-                drupal_set_message($this->t('OneAll Social Login is not setup correctly, please request the administrator to verify the API Settings'), 'error');
+                $this->messenger()->addError($this->t('OneAll Social Login is not setup correctly, please request the administrator to verify the API Settings'));
 
                 // Add log.
                 \Drupal::logger('social_login')->error('Unable to use Social Login, the API Settings are not filled out correctly.');
 
                 // Redirect to homepage.
-                return social_login_redirect ('drupal.home');
+
+                return social_login_redirect('drupal.home');
             }
             // Settings filled out.
             else
@@ -81,7 +109,7 @@ class SocialLoginController extends ControllerBase
                     $social_data = Json::decode($data['http_data']);
 
                     // Everything seems to be ok.
-                    if (is_array($social_data) && isset($social_data['response']) && isset($social_data['response']['request']['status']['code']))
+                    if (is_array($social_data) && isset($social_data['response']) && isset($social_data['response']['request']['status']['code']) && isset($social_data['response']['result']))
                     {
                         // Retrieve the response data.
                         $data = $social_data['response']['result']['data'];
@@ -123,23 +151,30 @@ class SocialLoginController extends ControllerBase
                                         // Login the user.
                                         user_login_finalize($user_for_token);
 
+                                        // Dispatches SocialLoginUserLoginEvent event.
+                                        $event = new SocialLoginUserLoginEvent($user_for_token, $data);
+                                        $event_dispatcher = \Drupal::service('event_dispatcher');
+                                        $event_dispatcher->dispatch(SocialLoginUserLoginEvent::EVENT_NAME, $event);
+
                                         // Clear session.
                                         social_login_clear_session();
 
                                         // Redirect to specified page.
-                                        return social_login_redirect ('settings.login', $user_for_token->id());
+
+                                        return social_login_redirect('settings.login', $user_for_token->id());
                                     }
                                     // The user is blocked.
                                     else
                                     {
                                         // User message.
-                                        drupal_set_message($this->t('Your account is blocked.'), 'error');
+                                        $this->messenger()->addError($this->t('Your account is blocked.'));
 
                                         // Clear session.
                                         social_login_clear_session();
 
                                         // Redirect to home.
-                                        return social_login_redirect ('drupal.home');
+
+                                        return social_login_redirect('drupal.home');
                                     }
                                 }
                                 // Existing User Token: Social Link.
@@ -154,9 +189,9 @@ class SocialLoginController extends ControllerBase
                                         // The existing token does not match the current user!
                                         if ($user_for_token->id() != $user->id())
                                         {
-                                            drupal_set_message($this->t('This @social_network account is already linked to another user.', [
+                                            $this->messenger()->addError($this->t('This @social_network account is already linked to another user.', [
                                                 '@social_network' => $provider_name
-                                            ]), 'error');
+                                            ]));
                                         }
                                         // The existing token matches the current user!
                                         else
@@ -165,19 +200,25 @@ class SocialLoginController extends ControllerBase
                                             if ($data['plugin']['data']['action'] == 'link_identity')
                                             {
                                                 // Add mapping.
-                                                social_login_map_identity_token_to_user_token($user, $identity_token, $user_token, $provider_name);
+                                                if (social_login_map_identity_token_to_user_token($user, $identity_token, $user_token, $provider_name))
+                                                {
+                                                    // Dispatches SocialLoginUserLinkedEvent event.
+                                                    $event = new SocialLoginUserLinkedEvent($user, $data);
+                                                    $event_dispatcher = \Drupal::service('event_dispatcher');
+                                                    $event_dispatcher->dispatch(SocialLoginUserLinkedEvent::EVENT_NAME, $event);
 
-                                                // Add user message.
-                                                drupal_set_message($this->t('The @social_network account has been linked to your account.', [
-                                                    '@social_network' => $provider_name
-                                                ]), 'status');
+                                                    // Add user message.
+                                                    $this->messenger()->addStatus($this->t('The @social_network account has been linked to your account.', [
+                                                        '@social_network' => $provider_name
+                                                    ]));
 
-                                                // Add log.
-                                                \Drupal::logger('social_login')->notice('@name has linked his @provider account, identity @identity_token.', [
-                                                    '@name' => $user->getAccountName(),
-                                                    '@provider' => $provider_name,
-                                                    '@identity_token' => $identity_token
-                                                ]);
+                                                    // Add log.
+                                                    \Drupal::logger('social_login')->notice('@name has linked his @provider account, identity @identity_token.', [
+                                                        '@name' => $user->getAccountName(),
+                                                        '@provider' => $provider_name,
+                                                        '@identity_token' => $identity_token
+                                                    ]);
+                                                }
                                             }
                                             // Unlink identity.
                                             else
@@ -186,7 +227,7 @@ class SocialLoginController extends ControllerBase
                                                 social_login_unmap_identity_token($identity_token);
 
                                                 // Add user message.
-                                                drupal_set_message($this->t('The social network account has been unlinked from your account.'), 'status');
+                                                $this->messenger()->addStatus($this->t('The social network account has been unlinked from your account.'));
 
                                                 // Add log.
                                                 \Drupal::logger('social_login')->notice('@name has unlinked a social network account, identity @identity_token.', [
@@ -202,24 +243,25 @@ class SocialLoginController extends ControllerBase
                                         // Redirect to previous page.
                                         if (!empty($_GET['origin']))
                                         {
-                                            return social_login_redirect ('custom.url', $_GET['origin']);
+                                            return social_login_redirect('custom.url', $_GET['origin']);
                                         }
                                         // Redirect to profile page.
                                         else
                                         {
-                                            return social_login_redirect ('drupal.profile');
+                                            return social_login_redirect('drupal.profile');
                                         }
                                     }
                                     // User is not logged in.
                                     else
                                     {
-                                        drupal_set_message($this->t('You must be logged in to perform this action.'), 'error');
+                                        $this->messenger()->addError($this->t('You must be logged in to perform this action.'));
 
                                         // Clear session.
                                         social_login_clear_session();
 
                                         // Redirect to home.
-                                        return social_login_redirect ('drupal.home');
+
+                                        return social_login_redirect('drupal.home');
                                     }
                                 }
                             }
@@ -239,19 +281,25 @@ class SocialLoginController extends ControllerBase
                                         if ($data['plugin']['data']['action'] == 'link_identity')
                                         {
                                             // Add mapping.
-                                            social_login_map_identity_token_to_user_token($user, $identity_token, $user_token, $provider_name);
+                                            if (social_login_map_identity_token_to_user_token($user, $identity_token, $user_token, $provider_name))
+                                            {
+                                                // Dispatches SocialLoginUserLinkedEvent event.
+                                                $event = new SocialLoginUserLinkedEvent($user, $data);
+                                                $event_dispatcher = \Drupal::service('event_dispatcher');
+                                                $event_dispatcher->dispatch(SocialLoginUserLinkedEvent::EVENT_NAME, $event);
 
-                                            // Add user message.
-                                            drupal_set_message($this->t('The @social_network account has been linked to your account.', [
-                                                '@social_network' => $provider_name
-                                            ]), 'status');
+                                                // Add user message.
+                                                $this->messenger()->addStatus($this->t('The @social_network account has been linked to your account.', [
+                                                    '@social_network' => $provider_name
+                                                ]));
 
-                                            // Add log.
-                                            \Drupal::logger('social_login')->notice('@name has linked his @provider account, identity @identity_token.', [
-                                                '@name' => $user->getAccountName(),
-                                                '@provider' => $provider_name,
-                                                '@identity_token' => $identity_token
-                                            ]);
+                                                // Add log.
+                                                \Drupal::logger('social_login')->notice('@name has linked his @provider account, identity @identity_token.', [
+                                                    '@name' => $user->getAccountName(),
+                                                    '@provider' => $provider_name,
+                                                    '@identity_token' => $identity_token
+                                                ]);
+                                            }
                                         }
                                         // Unlink identity.
                                         else
@@ -260,7 +308,7 @@ class SocialLoginController extends ControllerBase
                                             social_login_unmap_identity_token($identity_token);
 
                                             // Add user message.
-                                            drupal_set_message($this->t('The social network account has been unlinked from your account.'), 'status');
+                                            $this->messenger()->addStatus($this->t('The social network account has been unlinked from your account.'));
                                         }
 
                                         // Clear session.
@@ -269,32 +317,33 @@ class SocialLoginController extends ControllerBase
                                         // Redirect to previous page.
                                         if (!empty($_GET['origin']))
                                         {
-                                             return social_login_redirect ('custom.url', $_GET['origin']);
+                                            return social_login_redirect('custom.url', $_GET['origin']);
                                         }
                                         // Redirect to profile page.
                                         else
                                         {
-                                            return social_login_redirect ('drupal.profile');
+                                            return social_login_redirect('drupal.profile');
                                         }
                                     }
                                     // User is not logged in.
                                     else
                                     {
                                         // Add user message.
-                                        drupal_set_message($this->t('You must be logged in to perform this action.'), 'error');
+                                        $this->messenger()->addError($this->t('You must be logged in to perform this action.'));
 
                                         // Clear session.
                                         social_login_clear_session();
 
                                         // Redirect to home.
-                                        return social_login_redirect ('drupal.home');
+
+                                        return social_login_redirect('drupal.home');
                                     }
                                 }
                                 // No Existing User: Social Login (Default)
                                 else
                                 {
                                     // New users may register.
-                                    if (\Drupal::config('user.settings')->get('register') != USER_REGISTER_ADMINISTRATORS_ONLY)
+                                    if (\Drupal::config('user.settings')->get('register') != UserInterface::REGISTER_ADMINISTRATORS_ONLY)
                                     {
                                         // Extract the user's email address.
                                         $user_email = '';
@@ -305,17 +354,17 @@ class SocialLoginController extends ControllerBase
                                         if (isset($identity['emails']) && is_array($identity['emails']))
                                         {
                                             // Extract email address.
-                                            foreach ($identity['emails'] AS $email)
+                                            foreach ($identity['emails'] as $email)
                                             {
-                                               $user_email = $email['value'];
-                                               $user_email_is_verified = (!empty($email['is_verified']) ? true : false);
-                                               $user_email_is_random = false;
+                                                $user_email = $email['value'];
+                                                $user_email_is_verified = (!empty($email['is_verified']) ? true : false);
+                                                $user_email_is_random = false;
 
-                                               // Stop once we have found a verified email address.
-                                               if ($user_email_is_verified)
-                                               {
-                                                   break;
-                                               }
+                                                // Stop once we have found a verified email address.
+                                                if ($user_email_is_verified)
+                                                {
+                                                    break;
+                                                }
                                             }
                                         }
 
@@ -375,20 +424,26 @@ class SocialLoginController extends ControllerBase
                                             }
 
                                             // The username cannot begin/end with a space.
-                                            $user_login = trim ($user_login);
+                                            $user_login = trim($user_login);
 
                                             // The username cannot contain multiple spaces in a row.
                                             $user_login = preg_replace('!\s+!', ' ', $user_login);
 
+                                            // Setup username.
+                                            if (strlen(trim($user_login)) == 0)
+                                            {
+                                                $user_login = $provider_name . $this->t('User');
+                                            }
+
                                             // Forge unique username.
-                                            if (strlen(trim($user_login)) == 0 || social_login_get_uid_for_name(trim($user_login)) !== false)
+                                            if (social_login_get_uid_for_name(trim($user_login)) !== false)
                                             {
                                                 $i = 1;
-                                                $user_login = $provider_name . $this->t('User');
-                                                while (social_login_get_uid_for_name($user_login) !== false)
+                                                while (social_login_get_uid_for_name($user_login . $i) !== false)
                                                 {
-                                                    $user_login = $provider_name . $this->t('User') . ($i++);
+                                                    $i++;
                                                 }
+                                                $user_login = $user_login . $i;
                                             }
 
                                             // Forge password.
@@ -409,7 +464,7 @@ class SocialLoginController extends ControllerBase
 
                                                 // Use the system-wide setting.
                                                 default:
-                                                    $user_status = ((\Drupal::config('user.settings')->get('register') == USER_REGISTER_VISITORS) ? 1 : 0);
+                                                    $user_status = ((\Drupal::config('user.settings')->get('register') == UserInterface::REGISTER_VISITORS) ? 1 : 0);
                                                     break;
                                             }
 
@@ -434,7 +489,7 @@ class SocialLoginController extends ControllerBase
                                             ];
 
                                             // Create a new user.
-                                            $account = \Drupal\user\Entity\User::create($user_fields);
+                                            $account = User::create($user_fields);
                                             $account->save();
 
                                             // The new account has been created correctly.
@@ -451,59 +506,64 @@ class SocialLoginController extends ControllerBase
                                                 $registration_method = 'auto';
 
                                                 // Log the new user in.
-                                                if (($uid = \Drupal::service("user.auth")->authenticate($user_login, $user_password)) !== false)
+                                                if (($user = User::load($account->id(), true)) != null)
                                                 {
-
-                                                    // Loads a user object.
-                                                    $user = \Drupal\user\Entity\User::load($uid);
-
                                                     // Login.
                                                     user_login_finalize($user);
+
+                                                    // Dispatches SocialLoginUserLoginEvent event.
+                                                    $event = new SocialLoginUserLoginEvent($user, $data);
+                                                    $event_dispatcher = \Drupal::service('event_dispatcher');
+                                                    $event_dispatcher->dispatch(SocialLoginUserLoginEvent::EVENT_NAME, $event);
 
                                                     // Send email, but only if it's not a random address.
                                                     if ($user_email_is_random !== true)
                                                     {
-
                                                         // No approval is required.
                                                         if ($user_status == 1)
                                                         {
                                                             _user_mail_notify('register_no_approval_required', $user);
-                                                            drupal_set_message($this->t('You have successfully created an account and linked it with your @social_network account.', [
+
+                                                            $this->messenger()->addStatus($this->t('You have successfully created an account and linked it with your @social_network account.', [
                                                                 '@social_network' => $provider_name
-                                                            ]), 'status');
+                                                            ]));
 
                                                             // Redirect
-                                                            return social_login_redirect ('settings.register', $uid);
+
+                                                            return social_login_redirect('settings.register', $uid);
                                                         }
                                                         // Approval is required.
                                                         else
                                                         {
                                                             _user_mail_notify('register_pending_approval', $user);
-                                                            drupal_set_message($this->t('Thank you for applying for an account. Your account is currently pending approval by the site administrator.<br />You will receive an email once your account has been approved and you can then login with your @social_network account.', [
+
+                                                            $this->messenger()->addStatus($this->t('Thank you for applying for an account. Your account is currently pending approval by the site administrator.<br />You will receive an email once your account has been approved and you can then login with your @social_network account.', [
                                                                 '@social_network' => $provider_name
-                                                            ]), 'status');
+                                                            ]));
 
                                                             // Redirect
-                                                            return social_login_redirect ('drupal.home');
+
+                                                            return social_login_redirect('drupal.home');
                                                         }
                                                     }
                                                     // Random email used.
                                                     else
                                                     {
                                                         // Add user message.
-                                                        drupal_set_message($this->t('You have successfully created an account and linked it with your @provider account.', [
+                                                        $this->messenger()->addStatus($this->t('You have successfully created an account and linked it with your @provider account.', [
                                                             '@provider' => $provider_name
-                                                        ]), 'status');
+                                                        ]));
 
                                                         // Redirect.
-                                                        return social_login_redirect ('settings.register', $uid);
+
+                                                        return social_login_redirect('settings.register', $uid);
                                                     }
                                                 }
                                                 // For some reason we could not log the user in.
                                                 else
                                                 {
                                                     // Add user message.
-                                                    drupal_set_message($this->t('Error while logging you in, please try to login manually.'), 'error');
+                                                    $this->messenger()->addError($this->t('Error while logging you in, please try to login manually.'));
 
                                                     // Add system log.
                                                     \Drupal::logger('social_login')->error('Could not create login user @name. User tried to registered using @provider (@identity_token).', [
@@ -513,14 +573,15 @@ class SocialLoginController extends ControllerBase
                                                     ]);
 
                                                     // Redirect to login page to login manually.
-                                                    return social_login_redirect ('drupal.login');
+
+                                                    return social_login_redirect('drupal.login');
                                                 }
                                             }
                                             // An error occured during user_save().
                                             else
                                             {
                                                 // Add user message.
-                                                drupal_set_message($this->t('Error while creating your user account, please try to register manually.'), 'error');
+                                                $this->messenger()->addError($this->t('Error while creating your user account, please try to register manually.'));
 
                                                 // Add system log.
                                                 \Drupal::logger('social_login')->error('Could not save account for user @name. User tried to registered using @provider (@identity_token).', [
@@ -530,7 +591,8 @@ class SocialLoginController extends ControllerBase
                                                 ]);
 
                                                 // Redirect to registration page to register manually.
-                                                return social_login_redirect ('drupal.register');
+
+                                                return social_login_redirect('drupal.register');
                                             }
                                         }
 
@@ -538,7 +600,7 @@ class SocialLoginController extends ControllerBase
                                         if ($registration_method == 'manual')
                                         {
                                             // Go to the registration page (+ prepopulate form).
-                                            return social_login_redirect ('drupal.register');
+                                            return social_login_redirect('drupal.register');
                                         }
                                     }
                                     // Registration is disabled.
@@ -552,10 +614,11 @@ class SocialLoginController extends ControllerBase
                                         ]);
 
                                         // Add user message.
-                                        drupal_set_message($this->t('Only site administrators can create new user accounts.'), 'error');
+                                        $this->messenger()->addError($this->t('Only site administrators can create new user accounts.'));
 
                                         // Return to homepage.
-                                        return social_login_redirect ('drupal.home');
+
+                                        return social_login_redirect('drupal.home');
                                     }
                                 }
                             }
@@ -573,17 +636,17 @@ class SocialLoginController extends ControllerBase
                                     if ($data['plugin']['data']['reason'] == 'identity_is_linked_to_another_user')
                                     {
                                         // Add user message.
-                                        drupal_set_message($this->t('This social network account is already linked to another user. First logout and then login with that social network account.'), 'error');
+                                        $this->messenger()->addError($this->t('This social network account is already linked to another user. First logout and then login with that social network account.'));
 
                                         // Redirect to previous page.
                                         if (!empty($_GET['origin']))
                                         {
-                                            return social_login_redirect ('custom.url', $_GET['origin']);
+                                            return social_login_redirect('custom.url', $_GET['origin']);
                                         }
                                         // Redirect to profile page.
                                         else
                                         {
-                                            return social_login_redirect ('drupal.profile');
+                                            return social_login_redirect('drupal.profile');
                                         }
                                     }
                                 }
@@ -594,25 +657,27 @@ class SocialLoginController extends ControllerBase
                     else
                     {
                         // Add user message.
-                        drupal_set_message($this->t('OneAll Social Login is not setup correctly, please request the administrator to verify the API Settings'), 'error');
+                        $this->messenger()->addError($this->t('OneAll Social Login is not setup correctly, please request the administrator to verify the API Settings'));
 
                         // Add log.
                         \Drupal::logger('social_login')->error('Invalid RESPONSE received from OneAll API.');
 
                         // Return to homepage.
-                        return social_login_redirect ('drupal.home');
+
+                        return social_login_redirect('drupal.home');
                     }
                 }
                 else
                 {
                     // Add user message.
-                    drupal_set_message($this->t('OneAll Social Login is not setup correctly, please request the administrator to verify the API Settings'), 'error');
+                    $this->messenger()->addError($this->t('OneAll Social Login is not setup correctly, please request the administrator to verify the API Settings'));
 
                     // Add log.
                     \Drupal::logger('social_login')->error('Invalid JSON received from OneAll API.');
 
                     // Return to homepage.
-                    return social_login_redirect ('drupal.home');
+
+                    return social_login_redirect('drupal.home');
                 }
             }
         }
@@ -620,10 +685,11 @@ class SocialLoginController extends ControllerBase
         else
         {
             // Return to homepage.
-            return social_login_redirect ('drupal.home');
+            return social_login_redirect('drupal.home');
         }
 
         // Some other unhandled case.
-        return social_login_redirect ('drupal.home');
+
+        return social_login_redirect('drupal.home');
     }
 }

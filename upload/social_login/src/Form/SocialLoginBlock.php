@@ -6,7 +6,6 @@ use Drupal;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
-use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Builds the form for the Social Login block.
@@ -86,7 +85,6 @@ class SocialLoginBlock extends FormBase
         $renderer = \Drupal::service('renderer');
         $renderer->addCacheableDependency($form, $callback_uri);
 
-        // Done.
         return $form;
     }
 }
