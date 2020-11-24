@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.14.0] - 2020-11-24
+- New providers added : Line & Apple
+
 ## [2.13.0] - 2020-04-21
 - New providers added : Patreon
 

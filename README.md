@@ -3,7 +3,7 @@
 * [Social Login for Drupal 8.x - 8.7](https://github.com/oneall/social-login-drupal/tree/drupal/8.x)
 * [Social Login for Drupal 8.8 - 9.x](https://github.com/oneall/social-login-drupal/tree/drupal/9.x)
 
-# Social Login 2.13.0 for Drupal 7.x
+# Social Login 2.14.0 for Drupal 7.x
 
 Social Login for Drupal allows your users to login and register with 40+ social networks. 
 It increases your Drupal user registration rate by simplifying the registration process for 
@@ -20,6 +20,7 @@ https://www.drupal.org/project/social_login
 
 ## Supported Social Networks
 * Amazon
+* Apple
 * Battle.net
 * Blogger
 * Discord
