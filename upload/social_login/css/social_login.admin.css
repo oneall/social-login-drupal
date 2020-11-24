@@ -31,10 +31,6 @@ div.messages.social_login {
     background-position: -113px -1px;
 }
 
-.social_login_provider.social_login_provider_google {
-    background-position: -150px -1px;
-}
-
 .social_login_provider.social_login_provider_reddit {
     background-position: -187px -1px;
 }
@@ -189,4 +185,8 @@ div.messages.social_login {
 
 .social_login_provider.social_login_provider_patreon {
     background-position: -1630px -1px;
+}
+
+.social_login_provider.social_login_provider_apple {
+    background-position: -1741px -1px;
 }
