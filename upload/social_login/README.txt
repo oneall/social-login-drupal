@@ -49,11 +49,14 @@ OneAll Social Login for Drupal currently supports the following social
 networks and identity providers:
 
 - Amazon
+- Apple
 - Battle.net
 - Blogger
+- Discord
 - Disqus
 - Draugiem
 - Dribbble
+- Epic Games
 - Facebook
 - Foursquare
 - Github.com
@@ -64,6 +67,7 @@ networks and identity providers:
 - LiveJournal
 - Mail.ru
 - Meetup
+- Mixer
 - Odnoklassniki
 - OpenID
 - Patreon
@@ -71,15 +75,21 @@ networks and identity providers:
 - Pinterest
 - PixelPin
 - Reddit
-- Skyrock.com		
+- Skyrock.com
 - SoundCloud
+- Spotify
 - StackExchange
 - Steam
+- Strava
+- Tumblr
 - Twitch.tv
 - Twitter
 - Vimeo
 - VKontakte
+- Weibo
 - Windows Live
 - WordPress.com
+- Xing
 - Yahoo
+- Yandex
 - YouTube
