@@ -45,7 +45,7 @@ function social_login_get_user_agent() {
 
   // If there is no version, then the module if not from drupal.org.
   if (empty($oa_core_info['version'])) {
-    $oa_core_info_version = '2.14.0';
+    $oa_core_info_version = '2.15.0';
   }
   else {
     $oa_core_info_version = str_replace(array('-', '_', ':'), '.', $oa_core_info['version']);
@@ -1275,6 +1275,9 @@ function social_login_core_get_available_providers() {
     'dribbble' => array(
       'name' => 'Dribbble',
     ),
+    'epicgames' => array(
+      'name' => 'Epic Games'
+    ),
     'facebook' => array(
       'name' => 'Facebook'
     ),
@@ -1332,11 +1335,17 @@ function social_login_core_get_available_providers() {
     'skyrock' => array(
       'name' => 'Skyrock.com'
     ),
+    'spotify' => array(
+      'name' => 'Spotify'
+    ),
     'stackexchange' => array(
       'name' => 'StackExchange'
     ),
     'steam' => array(
       'name' => 'Steam'
+    ),
+    'strava' => array(
+      'name' => 'Strava'
     ),
     'tumblr' => array(
       'name' => 'Tumblr'
@@ -1367,6 +1376,9 @@ function social_login_core_get_available_providers() {
     ),
     'yahoo' => array(
       'name' => 'Yahoo'
+    ),
+    'yandex' => array(
+      'name' => 'Yandex'
     ),
     'youtube' => array(
       'name' => 'YouTube'

@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.15.0] - 2022-01-20
+- New providers added : Epic Games, Strava, Spotify & Yandex
+
 ## [2.14.0] - 2020-11-24
 - New providers added : Line & Apple
 
