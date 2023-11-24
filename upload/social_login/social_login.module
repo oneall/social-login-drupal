@@ -610,7 +610,7 @@ function social_login_check_fsockopen($protocol = 'https') {
  * Sends an API request by using the given handler.
  */
 function social_login_do_api_request($handler, $url, $options = [], $timeout = 30) {
-  $user_agent_string = 'SocialLogin/3.2.0 Drupal/9.x (+http://www.oneall.com/)';
+  $user_agent_string = 'SocialLogin/4.0.0 Drupal/10+ (+http://www.oneall.com/)';
 
   $http_code = 'n/a';
   $http_data = NULL;
@@ -758,7 +758,7 @@ function social_login_link_social_network_avatar($social_data, $account) {
         // Save the picture data locally.
         $tmp_name = $file_base_name . '.tmp';        
         $tmp_path = \Drupal::service('stream_wrapper_manager')->normalizeUri($tmp_name);
-        $tmp_file = file_save_data($http_result['http_data'], $tmp_path, FileSystemInterface::EXISTS_REPLACE);
+        $tmp_file = \Drupal::service('file.repository')->writeData($http_result['http_data'], $tmp_path, FileSystemInterface::EXISTS_REPLACE);
 
         if ($tmp_file === FALSE) {
           Drupal::logger('social_login')->error('Could not save user avatar to @path', ['@path' => $tmp_path]);
@@ -773,7 +773,7 @@ function social_login_link_social_network_avatar($social_data, $account) {
           $real_name = $file_base_name . image_type_to_extension($type);
           $real_path = \Drupal::service('stream_wrapper_manager')->normalizeUri($real_name);
 
-          $real_file = file_move($tmp_file, $real_path, FileSystemInterface::EXISTS_REPLACE);
+          $real_file = \Drupal::service('file.repository')->move($tmp_file, $real_path, FileSystemInterface::EXISTS_REPLACE);
 
           // file_move does not update the destination filename:
           $real_file->setFilename(Drupal::service('file_system')->basename($real_path));
