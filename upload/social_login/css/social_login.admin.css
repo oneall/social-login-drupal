@@ -13,6 +13,15 @@ div.messages.social_login {
     text-indent: -9999px;
     width: 35px;
 }
+.js-form-item.form-item.js-form-type-checkbox{
+   margin: 5px !important;
+   height: 55px !important;
+}
+
+label.form-item__label.option{
+    margin: 19px 5px !important;
+    display: inline-block;
+}
 
 /* Buttons */
 .social_login_provider.social_login_provider_vimeo {

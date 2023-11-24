@@ -368,6 +368,15 @@ class SocialLoginAdminSettings extends ConfigFormBase
         // Add providers.
         foreach ($social_login_available_providers as $key => $provider_data)
         {
+            $form['social_login_providers']['clear_' . $key] = [
+                '#type' => 'container',
+                '#attributes' => [
+                    'style' => [
+                        'clear: both;'
+                    ]
+                ]
+            ];
+
             $form['social_login_providers']['social_login_icon_' . $key] = [
                 '#title' => Html::escape($provider_data['name']),
                 '#type' => 'container',
@@ -378,7 +387,7 @@ class SocialLoginAdminSettings extends ConfigFormBase
                     ],
                     'style' => [
                         'float: left;',
-                        'margin: 5px;'
+                        'margin: 15px 5px;'
                     ]
                 ]
             ];
@@ -389,16 +398,7 @@ class SocialLoginAdminSettings extends ConfigFormBase
                 '#default_value' => (empty($settings['provider_' . $key]) ? 0 : 1),
                 '#attributes' => [
                     'style' => [
-                        'margin: 15px;'
-                    ]
-                ]
-            ];
-
-            $form['social_login_providers']['clear_' . $key] = [
-                '#type' => 'container',
-                '#attributes' => [
-                    'style' => [
-                        'clear: both;'
+                        'margin: 15px 5px;'
                     ]
                 ]
             ];
