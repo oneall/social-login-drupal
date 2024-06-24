@@ -154,7 +154,7 @@ class SocialLoginController extends ControllerBase
                                         // Dispatches SocialLoginUserLoginEvent event.
                                         $event = new SocialLoginUserLoginEvent($user_for_token, $data);
                                         $event_dispatcher = \Drupal::service('event_dispatcher');
-                                        $event_dispatcher->dispatch(SocialLoginUserLoginEvent::EVENT_NAME, $event);
+                                        $event_dispatcher->dispatch($event, SocialLoginUserLoginEvent::EVENT_NAME);
 
                                         // Clear session.
                                         social_login_clear_session();
@@ -205,7 +205,7 @@ class SocialLoginController extends ControllerBase
                                                     // Dispatches SocialLoginUserLinkedEvent event.
                                                     $event = new SocialLoginUserLinkedEvent($user, $data);
                                                     $event_dispatcher = \Drupal::service('event_dispatcher');
-                                                    $event_dispatcher->dispatch(SocialLoginUserLinkedEvent::EVENT_NAME, $event);
+                                                    $event_dispatcher->dispatch($event, SocialLoginUserLinkedEvent::EVENT_NAME);
 
                                                     // Add user message.
                                                     $this->messenger()->addStatus($this->t('The @social_network account has been linked to your account.', [
@@ -286,7 +286,7 @@ class SocialLoginController extends ControllerBase
                                                 // Dispatches SocialLoginUserLinkedEvent event.
                                                 $event = new SocialLoginUserLinkedEvent($user, $data);
                                                 $event_dispatcher = \Drupal::service('event_dispatcher');
-                                                $event_dispatcher->dispatch(SocialLoginUserLinkedEvent::EVENT_NAME, $event);
+                                                $event_dispatcher->dispatch($event, SocialLoginUserLinkedEvent::EVENT_NAME);
 
                                                 // Add user message.
                                                 $this->messenger()->addStatus($this->t('The @social_network account has been linked to your account.', [
@@ -514,7 +514,7 @@ class SocialLoginController extends ControllerBase
                                                     // Dispatches SocialLoginUserLoginEvent event.
                                                     $event = new SocialLoginUserLoginEvent($user, $data);
                                                     $event_dispatcher = \Drupal::service('event_dispatcher');
-                                                    $event_dispatcher->dispatch(SocialLoginUserLoginEvent::EVENT_NAME, $event);
+                                                    $event_dispatcher->dispatch($event, SocialLoginUserLoginEvent::EVENT_NAME);
 
                                                     // Send email, but only if it's not a random address.
                                                     if ($user_email_is_random !== true)

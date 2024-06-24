@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [4.0.1] - 2024-06-24
+### Fix
+Fix event dispatch
+
 ## [4.0.0] - 2023-11-24
 ### Fix
 Compatibility with Drupal 10
