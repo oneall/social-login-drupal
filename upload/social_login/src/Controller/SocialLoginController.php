@@ -357,7 +357,7 @@ class SocialLoginController extends ControllerBase
                                             foreach ($identity['emails'] as $email)
                                             {
                                                 $user_email = $email['value'];
-                                                $user_email_is_verified = (!empty($email['is_verified']) ? true : false);
+                                                $user_email_is_verified = !empty($email['is_verified']);
                                                 $user_email_is_random = false;
 
                                                 // Stop once we have found a verified email address.
@@ -447,7 +447,7 @@ class SocialLoginController extends ControllerBase
                                             }
 
                                             // Forge password.
-                                            $user_password = user_password(8);
+                                            $user_password = \Drupal::service('password_generator')->generate(8);
 
                                             // Check the approval setting.
                                             switch ($registration_approval)
@@ -509,7 +509,7 @@ class SocialLoginController extends ControllerBase
                                                 if (($user = User::load($account->id(), true)) != null)
                                                 {
                                                     // Login.
-                                                    user_login_finalize($user);
+                                                    \Drupal::service('user.session_finalize')->finalizeLogin($user);
 
                                                     // Dispatches SocialLoginUserLoginEvent event.
                                                     $event = new SocialLoginUserLoginEvent($user, $data);
@@ -530,7 +530,7 @@ class SocialLoginController extends ControllerBase
 
                                                             // Redirect
 
-                                                            return social_login_redirect('settings.register', $uid);
+                                                            return social_login_redirect('settings.register', $user->id());
                                                         }
                                                         // Approval is required.
                                                         else
@@ -556,7 +556,7 @@ class SocialLoginController extends ControllerBase
 
                                                         // Redirect.
 
-                                                        return social_login_redirect('settings.register', $uid);
+                                                        return social_login_redirect('settings.register', $user->id());
                                                     }
                                                 }
                                                 // For some reason we could not log the user in.
@@ -607,8 +607,7 @@ class SocialLoginController extends ControllerBase
                                     else
                                     {
                                         // Add system log.
-                                        \Drupal::logger('social_login')->error('Could not create account for user @name. Only admins may create accounts. User tried to registered using @provider (@identity_token).', [
-                                            '@name' => $user_login,
+                                        \Drupal::logger('social_login')->error('Could not create account for user. Only admins may create accounts. User tried to registered using @provider (@identity_token).', [
                                             '@provider' => $provider_name,
                                             '@identity_token' => $identity_token
                                         ]);
