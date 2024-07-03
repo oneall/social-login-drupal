@@ -472,7 +472,7 @@ class SocialLoginController extends ControllerBase
                                             $user_roles = [];
 
                                             // Make sure at least one module implements our hook.
-                                            if (count(\Drupal::moduleHandler()->getImplementations('social_login_default_user_roles')) > 0)
+                                            if (\Drupal::moduleHandler()->hasImplementations('social_login_default_user_roles'))
                                             {
                                                 // Call modules that implement the hook.
                                                 $user_roles = \Drupal::moduleHandler()->invokeAll('social_login_default_user_roles', $user_roles);
@@ -509,7 +509,7 @@ class SocialLoginController extends ControllerBase
                                                 if (($user = User::load($account->id(), true)) != null)
                                                 {
                                                     // Login.
-                                                    \Drupal::service('user.session_finalize')->finalizeLogin($user);
+                                                    user_login_finalize($user);
 
                                                     // Dispatches SocialLoginUserLoginEvent event.
                                                     $event = new SocialLoginUserLoginEvent($user, $data);
