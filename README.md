@@ -4,7 +4,7 @@
 * [Social Login for Drupal 8.8 - 9.x](https://github.com/oneall/social-login-drupal/tree/drupal/9.x)
 * **Social Login for Drupal 10+**
 
-# Social Login 4.0.2 for Drupal 10+
+# Social Login 4.0.3 for Drupal 10+
 Social Login for Drupal allows your users to login and register with 40+ social networks. 
 It increases your Drupal user registration rate by simplifying the registration process for 
 new users and provides permission-based social data retrieved from the social network profiles.
