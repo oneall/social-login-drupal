@@ -234,6 +234,11 @@ function social_login_show_providers(&$form, $form_state, $target) {
 
         // Display on top.
         $position = ($settings['profile_page_icons'] == 'above' ? -100 : 100);
+        
+        // Save current user
+        $user = \Drupal\user\Entity\User::load(\Drupal::currentUser()->id());
+        user_cookie_save(['oatoken' => $user->uuid()]);
+
       }
     break;
 
@@ -610,7 +615,7 @@ function social_login_check_fsockopen($protocol = 'https') {
  * Sends an API request by using the given handler.
  */
 function social_login_do_api_request($handler, $url, $options = [], $timeout = 30) {
-  $user_agent_string = 'SocialLogin/4.0.3 Drupal/10+ (+http://www.oneall.com/)';
+  $user_agent_string = 'SocialLogin/4.0.4 Drupal/10+ (+http://www.oneall.com/)';
 
   $http_code = 'n/a';
   $http_data = NULL;
@@ -1039,6 +1044,14 @@ function social_login_get_uid_for_name($name) {
 function social_login_get_uid_for_email($mail) {
   $users = Drupal::entityTypeManager()->getStorage('user')->loadByProperties(['mail' => $mail]);
   return (empty($users) ? FALSE : $users);
+}
+
+/**
+ * Get the user(s) for an uuid.
+ */
+function social_login_get_uid_for_uuid($uuid) {
+    $user = Drupal::entityTypeManager()->getStorage('user')->loadByProperties(['uuid' => $uuid]);
+  return (empty($user[1]) ? FALSE : $user[1]);
 }
 
 /**

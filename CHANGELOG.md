@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [4.0.4] - 2024-07-05
+### Fix
+Social Link fix
+
 ## [4.0.3] - 2024-07-03
 ### Fix
 Deprecated D10 functions

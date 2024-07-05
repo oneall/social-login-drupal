@@ -40,6 +40,8 @@ class SocialLoginController extends ControllerBase
 
     /**
      * This is the callback handler (referenced by routing.yml).
+     * @return \Symfony\Component\HttpFoundation\RedirectResponse
+     * @throws \Drupal\Core\Entity\EntityStorageException
      */
     public function callbackHandler()
     {
@@ -181,7 +183,9 @@ class SocialLoginController extends ControllerBase
                                 elseif ($data['plugin']['key'] == 'social_link')
                                 {
                                     // The user must be logged in.
-                                    $user = \Drupal::currentUser();
+                                    $uuid = $_COOKIE['Drupal_visitor_oatoken'];
+                                    $user = social_login_get_uid_for_uuid($uuid);
+                                    user_login_finalize($user);
 
                                     // User is logged in.
                                     if (is_object($user) && $user->isAuthenticated())
@@ -271,8 +275,10 @@ class SocialLoginController extends ControllerBase
                                 // No Existing User Token: Social Link.
                                 if ($data['plugin']['key'] == 'social_link')
                                 {
-                                    // The user should be logged in.
-                                    $user = \Drupal::currentUser();
+                                    // The user must be logged in.
+                                    $uuid = $_COOKIE['Drupal_visitor_oatoken'];
+                                    $user = social_login_get_uid_for_uuid($uuid);
+                                    user_login_finalize($user);
 
                                     // User is logged in.
                                     if (is_object($user) && $user->isAuthenticated())
