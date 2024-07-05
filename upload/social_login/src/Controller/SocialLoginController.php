@@ -186,6 +186,7 @@ class SocialLoginController extends ControllerBase
                                     $uuid = $_COOKIE['Drupal_visitor_oatoken'];
                                     $user = social_login_get_uid_for_uuid($uuid);
                                     user_login_finalize($user);
+                                    user_cookie_delete('oatoken');
 
                                     // User is logged in.
                                     if (is_object($user) && $user->isAuthenticated())
@@ -279,6 +280,7 @@ class SocialLoginController extends ControllerBase
                                     $uuid = $_COOKIE['Drupal_visitor_oatoken'];
                                     $user = social_login_get_uid_for_uuid($uuid);
                                     user_login_finalize($user);
+                                    user_cookie_delete('oatoken');
 
                                     // User is logged in.
                                     if (is_object($user) && $user->isAuthenticated())
