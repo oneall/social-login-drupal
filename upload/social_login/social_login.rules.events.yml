@@ -1,0 +1,21 @@
+social_login_user_linked:
+  label: 'Linked social network'
+  category: 'User'
+  context_definitions:
+    account:
+      type: 'entity:user'
+      label: 'Linked social network'
+social_login_user_created:
+  label: 'User has registered'
+  category: 'User'
+  context_definitions:
+    account:
+      type: 'entity:user'
+      label: 'Registered user'
+social_login_user_login:
+  label: 'User has logged in'
+  category: 'User'
+  context_definitions:
+    account:
+      type: 'entity:user'
+      label: 'Logged in user'

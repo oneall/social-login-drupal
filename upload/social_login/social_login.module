@@ -236,9 +236,9 @@ function social_login_show_providers(&$form, $form_state, $target) {
         $position = ($settings['profile_page_icons'] == 'above' ? -100 : 100);
         
         // Save current user
+        user_cookie_delete('oatoken');
         $user = \Drupal\user\Entity\User::load(\Drupal::currentUser()->id());
         user_cookie_save(['oatoken' => $user->uuid()]);
-
       }
     break;
 
